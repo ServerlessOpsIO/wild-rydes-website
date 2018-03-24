@@ -3,7 +3,9 @@ env:
     - DIST_DIR="${PWD}/dist"
     - PROJECT_NAME=$(basename ${PWD})
     - ARTIFACT_ID="${TRAVIS_COMMIT}-${TRAVIS_BUILD_NUMBER}"
-    - S3_BUCKET="serverlessops-deploy"
+    - S3_BUCKET_PREFIX="serverlessops-deploy"
+    - S3_BUCKET_DEV="${S3_BUCKET_PREFIX}-training-dev"
+    - S3_BUCKET_PROD="${S3_BUCKET_PREFIX}-training-prod"
     - S3_BUILD_PREFIX="${PROJECT_NAME}/${ARTIFACT_ID}/build"
     - AWS_REGION=us-east-1
     # AWS_ACCESS_KEY_ID_DEV
@@ -19,6 +21,7 @@ stages:
   - build
   - deploy-dev
 #    if: branch = master
+  - promote-to-prod
 #  - name: deploy-prod
 #    if: branch = master
 
@@ -43,7 +46,7 @@ jobs:
       deploy:
         - provider: s3
           skip_cleanup: true
-          bucket: "${S3_BUCKET}-training-dev"
+          bucket: "${S3_BUCKET_DEV}"
           upload_dir: "${PROJECT_NAME}/${ARTIFACT_ID}"
           local_dir: "$DIST_DIR"
           acl: private
@@ -68,7 +71,7 @@ jobs:
         - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_DEV
         - npm install -g serverless
       script:
-        - aws s3 cp "s3://${S3_BUCKET}-training-dev/${PROJECT_NAME}/${ARTIFACT_ID}/${PROJECT_NAME}.zip" ./
+        - aws s3 cp "s3://${S3_BUCKET_DEV}/${PROJECT_NAME}/${ARTIFACT_ID}/${PROJECT_NAME}.zip" ./
         - mkdir ${DIST_DIR}
         - unzip -q ${PROJECT_NAME}.zip -d ${DIST_DIR}
         - cd ${DIST_DIR}
@@ -79,3 +82,23 @@ jobs:
       after_script:
         # Ensure our creds are cleaned up.
         - rm -rf ~/.aws
+
+    - stage: promote-to-prod
+      language: python
+      python: '3.6'
+      install:
+        - pip install awscli
+        # Our SLS setup expects to find an AWS profile so let's just manage
+        # our creds this way.
+        - aws configure set default.region $AWS_REGION
+      script:
+        # fetch from Dev
+        - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID_DEV
+        - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_DEV
+        - aws s3 cp "s3://${S3_BUCKET_DEV}/${PROJECT_NAME}/${ARTIFACT_ID}/${PROJECT_NAME}.zip" ./
+        # Send to prod
+        - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID_PROD
+        - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_PROD
+        - aws s3 cp "./${PROJECT_NAME}.zip" "s3://${S3_BUCKET_PROD}/${PROJECT_NAME}/${ARTIFACT_ID}/"
+
+
