@@ -18,6 +18,8 @@ env:
 
 stages:
   - build
+  # We can take the PR conditional out when we get to a point of deploying
+  # to an environment to do integration testing.
   - name: deploy-dev
     if: branch = master AND type != pull_request
   - name: promote-to-prod
@@ -35,12 +37,19 @@ jobs:
       python: '3.6'
       install:
         - npm install -g serverless
-      script: true
-      before_deploy:
         - npm install
+        - pip install awscli
+        - aws configure set default.region $AWS_REGION
+        - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID_DEV
+        - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_DEV
+      script:
         # The stage here doesn't really matter. We just want to ensure that
         # template is valid and assemble our dependencies.
         - sls package -v -s deploy -r ${AWS_REGION}
+      after_script:
+        # Ensure our creds are cleaned up.
+        - rm -rf ~/.aws
+      pre_deploy:
         - mkdir $DIST_DIR
         - zip -r dist/${ARTIFACT} ./ -x '*.git*' -x $DIST_DIR
       deploy:
