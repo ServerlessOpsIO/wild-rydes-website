@@ -49,7 +49,7 @@ jobs:
       after_script:
         # Ensure our creds are cleaned up.
         - rm -rf ~/.aws
-      pre_deploy:
+      before_deploy:
         - mkdir $DIST_DIR
         - zip -r dist/${ARTIFACT} ./ -x '*.git*' -x $DIST_DIR
       deploy:
