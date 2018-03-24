@@ -50,9 +50,6 @@ jobs:
           upload_dir: "${PROJECT_NAME}"
           local_dir: "$DIST_DIR"
           acl: private
-          on:
-            repo: "$TRAVIS_REPO_SLUG"
-            all_branches: true
           access_key_id: "$AWS_ACCESS_KEY_ID_DEV"
           secret_access_key: "$AWS_SECRET_ACCESS_KEY_DEV"
 
