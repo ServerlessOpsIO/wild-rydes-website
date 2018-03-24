@@ -19,11 +19,11 @@ env:
 stages:
   - build
   - name: deploy-dev
-    if: branch = master
+    if: branch = master AND type != pull_request
   - name: promote-to-prod
-    if: branch = master
+    if: branch = master AND type != pull_request
   - name: deploy-prod
-    if: branch = master
+    if: branch = master AND type != pull_request
 
 jobs:
   include:
