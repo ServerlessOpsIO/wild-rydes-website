@@ -2,11 +2,10 @@ env:
   global:
     - DIST_DIR="${PWD}/dist"
     - PROJECT_NAME=$(basename ${PWD})
-    - ARTIFACT_ID="${TRAVIS_COMMIT}-${TRAVIS_BUILD_NUMBER}"
+    - ARTIFACT="${TRAVIS_BUILD_NUMBER}-${TRAVIS_COMMIT}.zip"
     - S3_BUCKET_PREFIX="serverlessops-deploy"
     - S3_BUCKET_DEV="${S3_BUCKET_PREFIX}-training-dev"
     - S3_BUCKET_PROD="${S3_BUCKET_PREFIX}-training-prod"
-    - S3_BUILD_PREFIX="${PROJECT_NAME}/${ARTIFACT_ID}/build"
     - AWS_REGION=us-east-1
     # AWS_ACCESS_KEY_ID_DEV
     - secure: "qeyqmUvBR9VBIgulHvwTWNuqFNhZXSbphPjXYuq7iwMm4BaYTKqSdIe1ksRgE1L4TDN9Pi2CcDbvlC47zHwD6UsM65W7c1OUH/MrKNGLhLcQmhbAjHAds5qNlsjvvQdqxZbc5mV+xw/YoAtC3J0TxYPgDRyrg5jZi2uVbYJzwJrZ3dIfg47iHU4k9foa4+2Phn876GYK3xFoajMtEoW+8kTBwn4+BLd4xQ/TXUOoqkpOVmOtcvSpPb6B6ZjJWFn5vxelh/3uO4RgxpMKP5wgJlPH0AArKa5KMX/h3u2e4Trqty8LLw9YBaVrM4aRA4vouKMZcZcBQk/7YkNmaT+xfUyPbN4GY7ERgDeA4iDPbEoaC1Y6xTXIfOy8ikjMZHoYdPnK983K5rAXXa0Of2TxezBTu5NbuD4fEnh2yA9AkSbihg6AmlBwdHQWNaIZqvowIoWkqr5H/29tSl4zGAHrg9CgfTrVZZI/K9d8Bgh89PDWlwaOUOYNvenKeVLvCTso86r95PMc+OwaIU+pUUDc+8B6s22JEO0WWfEDWf9+LxOJkIC8dcS9vf7YSHQEUqCIKhOoBSCF23HO1py4CwEq3FLM6j/qpRZSJg14rehOqsGB8fDjn5b8XSY01p7vupikkXJMKQJsVyQsAd1r0NsdPPKcU303T5u89Ke8s+NhtZw="
@@ -43,12 +42,12 @@ jobs:
         # template is valid and assemble our dependencies.
         - sls package -v -s deploy -r ${AWS_REGION}
         - mkdir $DIST_DIR
-        - zip -r dist/${PROJECT_NAME}.zip ./ -x '*.git*' -x $DIST_DIR
+        - zip -r dist/${ARTIFACT} ./ -x '*.git*' -x $DIST_DIR
       deploy:
         - provider: s3
           skip_cleanup: true
           bucket: "${S3_BUCKET_DEV}"
-          upload_dir: "${PROJECT_NAME}/${ARTIFACT_ID}"
+          upload_dir: "${PROJECT_NAME}"
           local_dir: "$DIST_DIR"
           acl: private
           on:
@@ -72,9 +71,9 @@ jobs:
         - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_DEV
         - npm install -g serverless
       script:
-        - aws s3 cp "s3://${S3_BUCKET_DEV}/${PROJECT_NAME}/${ARTIFACT_ID}/${PROJECT_NAME}.zip" ./
+        - aws s3 cp "s3://${S3_BUCKET_DEV}/${PROJECT_NAME}/${ARTIFACT}" ./
         - mkdir ${DIST_DIR}
-        - unzip -q ${PROJECT_NAME}.zip -d ${DIST_DIR}
+        - unzip -q ${ARTIFACT} -d ${DIST_DIR}
         - cd ${DIST_DIR}
         # We have to use `sls deploy` without the package argument because
         # otherwise the zone name is already resolved.
@@ -96,11 +95,11 @@ jobs:
         # fetch from Dev
         - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID_DEV
         - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_DEV
-        - aws s3 cp "s3://${S3_BUCKET_DEV}/${PROJECT_NAME}/${ARTIFACT_ID}/${PROJECT_NAME}.zip" ./
+        - aws s3 cp "s3://${S3_BUCKET_DEV}/${PROJECT_NAME}/${ARTIFACT}" ./
         # Send to prod
         - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID_PROD
         - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_PROD
-        - aws s3 cp "./${PROJECT_NAME}.zip" "s3://${S3_BUCKET_PROD}/${PROJECT_NAME}/${ARTIFACT_ID}/"
+        - aws s3 cp "${ARTIFACT}" "s3://${S3_BUCKET_PROD}/${PROJECT_NAME}/"
 
     - stage: deploy-prod
       sudo: required
@@ -117,9 +116,9 @@ jobs:
         - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_PROD
         - npm install -g serverless
       script:
-        - aws s3 cp "s3://${S3_BUCKET_PROD}/${PROJECT_NAME}/${ARTIFACT_ID}/${PROJECT_NAME}.zip" ./
+        - aws s3 cp "s3://${S3_BUCKET_PROD}/${PROJECT_NAME}/${ARTIFACT}" ./
         - mkdir ${DIST_DIR}
-        - unzip -q ${PROJECT_NAME}.zip -d ${DIST_DIR}
+        - unzip -q ${ARTIFACT} -d ${DIST_DIR}
         - cd ${DIST_DIR}
         # We have to use `sls deploy` without the package argument because
         # otherwise the zone name is already resolved.
