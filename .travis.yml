@@ -19,10 +19,11 @@ env:
 
 stages:
   - build
-  - deploy-dev
+  - name: deploy-dev
 #    if: branch = master
-  - promote-to-prod
-#  - name: deploy-prod
+  - name: promote-to-prod
+#    if: branch = master
+  - name: deploy-prod
 #    if: branch = master
 
 jobs:
@@ -101,4 +102,30 @@ jobs:
         - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_PROD
         - aws s3 cp "./${PROJECT_NAME}.zip" "s3://${S3_BUCKET_PROD}/${PROJECT_NAME}/${ARTIFACT_ID}/"
 
+    - stage: deploy-prod
+      sudo: required
+      services:
+        - docker
+      language: python
+      python: '3.6'
+      install:
+        - pip install awscli
+        # Our SLS setup expects to find an AWS profile so let's just manage
+        # our creds this way.
+        - aws configure set default.region $AWS_REGION
+        - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID_PROD
+        - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_PROD
+        - npm install -g serverless
+      script:
+        - aws s3 cp "s3://${S3_BUCKET_PROD}/${PROJECT_NAME}/${ARTIFACT_ID}/${PROJECT_NAME}.zip" ./
+        - mkdir ${DIST_DIR}
+        - unzip -q ${PROJECT_NAME}.zip -d ${DIST_DIR}
+        - cd ${DIST_DIR}
+        # We have to use `sls deploy` without the package argument because
+        # otherwise the zone name is already resolved.
+        - export SLS_HOSTED_ZONE_NAME=prod.training.serverlessops.io
+        - sls deploy -v -s prod
+      after_script:
+        # Ensure our creds are cleaned up.
+        - rm -rf ~/.aws
 
