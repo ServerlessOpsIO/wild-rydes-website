@@ -9,13 +9,6 @@ custom:
   profile: "${opt:aws-profile, env:AWS_PROFILE, env:AWS_DEFAULT_PROFILE, 'default'}"
   hostedZoneName: "${env:SLS_HOSTED_ZONE_NAME, 'dev.training.serverlessops.io'}"
   bucketName: "${self:service}-${self:custom.stage}.${self:custom.hostedZoneName}"
-  # Additional region zone IDs and DNS names found here:
-  # https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
-  aliasHostedZoneId: Z3AQBSTGFYJSTF    # us-east-1
-  aliasDNSName: s3-website-us-east-1.amazonaws.com
-
-  indexDocument: index.html
-  errorDocument: error.html
 
   s3Sync:
     - bucketName: ${self:custom.bucketName}
@@ -38,8 +31,8 @@ resources:
         AccessControl: PublicRead
         BucketName: ${self:custom.bucketName}
         WebsiteConfiguration:
-          IndexDocument: ${self:custom.indexDocument}
-          ErrorDocument: ${self:custom.errorDocument}
+          IndexDocument: index.html
+          ErrorDocument: error.html
 
     StaticSiteS3BucketPolicy:
       Type: AWS::S3::BucketPolicy
@@ -52,7 +45,7 @@ resources:
               Effect: Allow
               Principal: "*"
               Action:
-              - s3:GetObject
+                - s3:GetObject
               Resource:
                 Fn::Join: [
                   "", [
@@ -68,8 +61,10 @@ resources:
       Type: "AWS::Route53::RecordSet"
       Properties:
         AliasTarget:
-          DNSName: ${self:custom.aliasDNSName}
-          HostedZoneId: ${self:custom.aliasHostedZoneId}
+          DNSName: s3-website-us-east-1.amazonaws.com
+          # Additional region zone IDs and DNS names found here:
+          # https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+          HostedZoneId: Z3AQBSTGFYJSTF    # us-east-1
         HostedZoneName: ${self:custom.hostedZoneName}.
         Name:
           Ref: StaticSite
